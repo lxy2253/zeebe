@@ -217,8 +217,8 @@ public final class ProcessingStateMachine {
       return;
     }
 
-    metrics.processingLatency(
-        metadata.getRecordType(), event.getTimestamp(), ActorClock.currentTimeMillis());
+    final long processingStartTime = ActorClock.currentTimeMillis();
+    metrics.processingLatency(metadata.getRecordType(), event.getTimestamp(), processingStartTime);
 
     try {
       final UnifiedRecordValue value = recordValues.readRecordValue(event, metadata.getValueType());
@@ -227,6 +227,8 @@ public final class ProcessingStateMachine {
       processInTransaction(typedEvent);
 
       metrics.eventProcessed();
+      metrics.processingDuration(
+          metadata.getRecordType(), processingStartTime, ActorClock.currentTimeMillis());
 
       writeEvent();
     } catch (final RecoverableException recoverableException) {
