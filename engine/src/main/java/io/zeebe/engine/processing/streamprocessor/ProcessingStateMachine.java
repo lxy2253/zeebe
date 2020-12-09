@@ -136,6 +136,8 @@ public final class ProcessingStateMachine {
   private long errorRecordPosition = StreamProcessor.UNSET_POSITION;
   private volatile boolean onErrorHandlingLoop;
   private int onErrorRetries;
+  // Used for processing duration metrics
+  private long processingStartTime;
 
   public ProcessingStateMachine(
       final ProcessingContext context, final BooleanSupplier shouldProcessNext) {
@@ -217,7 +219,7 @@ public final class ProcessingStateMachine {
       return;
     }
 
-    final long processingStartTime = ActorClock.currentTimeMillis();
+    processingStartTime = ActorClock.currentTimeMillis();
     metrics.processingLatency(metadata.getRecordType(), event.getTimestamp(), processingStartTime);
 
     try {
@@ -227,8 +229,6 @@ public final class ProcessingStateMachine {
       processInTransaction(typedEvent);
 
       metrics.eventProcessed();
-      metrics.processingDuration(
-          metadata.getRecordType(), processingStartTime, ActorClock.currentTimeMillis());
 
       writeEvent();
     } catch (final RecoverableException recoverableException) {
@@ -428,6 +428,8 @@ public final class ProcessingStateMachine {
 
           notifyListener();
 
+          metrics.processingDuration(
+              metadata.getRecordType(), processingStartTime, ActorClock.currentTimeMillis());
           // continue with next event
           currentProcessor = null;
           actor.submit(this::readNextEvent);
